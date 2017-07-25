@@ -12,7 +12,6 @@ class ViewController: UIViewController {
     var audioPlayer = AVAudioPlayer()
     
     var playButton: UIButton? = nil
-    var pauseButton: UIButton? = nil
     var stopButton: UIButton? = nil
     
     var backgroundImage: UIImageView? = nil
@@ -20,6 +19,14 @@ class ViewController: UIViewController {
     
     var volumeSlider: UISlider? = nil
     var songSlider: UISlider? = nil
+    
+    var songCurrentTime: UILabel = {
+        return UILabel()
+    }()
+    
+    var songTime: UILabel = {
+        return UILabel()
+    }()
     
     var timer: Timer? = nil
     var seconds: Float = 0
@@ -37,23 +44,34 @@ class ViewController: UIViewController {
         
         setupAVPlayer()
         setupButtons()
-    
         
-        let sliderFrame = CGRect(x: (view.frame.width / 2) - (view.frame.width - 140) / 2, y: 330, width: view.frame.width - 140, height: 40)
 
+        let timeSliderFrame = CGRect(x: (view.frame.width / 2) - (view.frame.width - 140) / 2, y: 370, width: view.frame.width - 140, height: 40)
+        songSlider                          = UISlider(frame: timeSliderFrame)
+        songSlider?.minimumValue            = 0
+        songSlider?.maximumValue            = Float(audioPlayer.duration)
+        songSlider?.isContinuous            = false
+        songSlider?.minimumTrackTintColor   = UIColor.yellow
+        songSlider?.maximumTrackTintColor   = UIColor.yellow.withAlphaComponent(0.5)
+        songSlider?.addTarget(self, action: #selector(ViewController.changeSongPosition(_:)), for: .valueChanged)
+        
+        let sliderFrame = CGRect(x: (songSlider?.frame.width)! + 15, y: 330, width: 200, height: 40)
+        
         volumeSlider = UISlider(frame: sliderFrame)
         volumeSlider?.addTarget(self, action: #selector(ViewController.changeVolume(_:)), for: .valueChanged)
         volumeSlider?.minimumValue = 0
         volumeSlider?.maximumValue = 100
+        // Set default value to whatever is coming on player by default.
+        volumeSlider?.setValue(audioPlayer.volume * 100, animated: false)
+        // make it vertical
+        volumeSlider?.transform = CGAffineTransform(rotationAngle: CGFloat(-(Double.pi / 2)))
         view.addSubview(volumeSlider!)
 
-        let timeSliderFrame = CGRect(x: (view.frame.width / 2) - (view.frame.width - 140) / 2, y: 370, width: view.frame.width - 140, height: 40)
-        songSlider = UISlider(frame: timeSliderFrame)
-        songSlider?.addTarget(self, action: #selector(ViewController.changeSongPosition(_:)), for: .valueChanged)
-        songSlider?.minimumValue = 0
-        songSlider?.maximumValue = Float(audioPlayer.duration)
         view.addSubview(songSlider!)
+        view.addSubview(songCurrentTime)
+        view.addSubview(songTime)
     }
+    
     func startSongSliderTimer() {
         if timer ==  nil {
             timer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(ViewController.updateSlider), userInfo: nil, repeats: true)
@@ -73,18 +91,22 @@ class ViewController: UIViewController {
 
     }
     func changeVolume(_ sender: UISlider) {
-        print(sender.value)
-        audioPlayer.volume = sender.value
-        
+        audioPlayer.volume = sender.value / 100.0
+        print(audioPlayer.volume)
     }
+    
     func changeSongPosition(_ sender: UISlider) {
         print(sender.value)
-        audioPlayer.stop()
-        audioPlayer.currentTime = TimeInterval(sender.value)
-        songSlider?.value = sender.value
-        seconds = sender.value
-        startSongSliderTimer()
-        audioPlayer.play()
+        
+        audioPlayer.currentTime     = TimeInterval(sender.value)
+        songSlider?.value           = sender.value
+        seconds                     = sender.value
+        
+        if audioPlayer.isPlaying {
+            startSongSliderTimer()
+            audioPlayer.play()
+        }
+        
     }
     func setupImages() {
         let bgFrame = CGRect(x: 0, y: 0, width: view.frame.width, height: view.frame.height)
@@ -120,7 +142,7 @@ class ViewController: UIViewController {
         playButton = UIButton(frame: playButtonFrame)
         playButton?.setTitle("Play", for: .normal)
         playButton?.setTitleColor(UIColor.blue, for: .normal)
-        playButton?.addTarget(self, action: (#selector(ViewController.play(_:))), for: .touchUpInside)
+        playButton?.addTarget(self, action: (#selector(ViewController.playPause(_:))), for: .touchUpInside)
         
         let stopButtonFrame = CGRect(x: 0, y: 56, width: view.frame.width, height: 32)
         stopButton = UIButton(frame: stopButtonFrame)
@@ -128,20 +150,10 @@ class ViewController: UIViewController {
         stopButton?.setTitleColor(UIColor.blue, for: .normal)
         stopButton?.addTarget(self, action: (#selector(ViewController.stop(_:))), for: .touchUpInside)
         
-        let pauseButtonFrame = CGRect(x: 0, y: 84, width: view.frame.width, height: 32)
-        pauseButton = UIButton(frame: pauseButtonFrame)
-        pauseButton?.setTitle("Pause", for: .normal)
-        pauseButton?.setTitleColor(UIColor.blue, for: .normal)
-        pauseButton?.addTarget(self, action: (#selector(ViewController.pause(_:))), for: .touchUpInside)
-        
-        
-        
-        
         view.addSubview(playButton!)
         view.addSubview(stopButton!)
-        view.addSubview(pauseButton!)
-    
     }
+    
     func setupAVPlayer() -> Void {
         let url = URL(fileURLWithPath: Bundle.main.path(forResource:"a", ofType:"mp3")!)
         do {
@@ -161,12 +173,21 @@ class ViewController: UIViewController {
         }
     
     }
-    func play(_ sender: AnyObject) {
+    func playPause(_ sender: AnyObject) {
+        
         if audioPlayer.isPlaying != true {
             audioPlayer.play()
             startSongSliderTimer()
+            playButton?.setTitle("Resume", for: .normal)
+        } else {
+            audioPlayer.pause()
+            timer?.invalidate()
+            timer = nil
+            playButton?.setTitle("Play", for: .normal)
         }
+        
     }
+    
     func stop(_ sender: AnyObject) {
         if audioPlayer.isPlaying {
             audioPlayer.stop()
@@ -176,12 +197,6 @@ class ViewController: UIViewController {
             songSlider?.value = 0
             seconds = 0
             
-        }
-    }
-    func pause(_ sender: AnyObject) {
-        if audioPlayer.isPlaying {
-            audioPlayer.pause()
-
         }
     }
 
