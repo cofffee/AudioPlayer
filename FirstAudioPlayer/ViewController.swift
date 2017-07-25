@@ -8,6 +8,25 @@
 
 import UIKit
 import AVFoundation
+
+extension TimeInterval {
+    
+    struct DateComponents {
+        static let formatterPositional: DateComponentsFormatter = {
+            let formatter = DateComponentsFormatter()
+            formatter.allowedUnits = [.minute,.second]
+            formatter.unitsStyle = .positional
+            formatter.zeroFormattingBehavior = .pad
+            return formatter
+        }()
+    }
+    
+    var positionalTime: String {
+        return DateComponents.formatterPositional.string(from: self) ?? "0:00"
+    }
+}
+
+
 class ViewController: UIViewController {
     var audioPlayer = AVAudioPlayer()
     
@@ -21,11 +40,17 @@ class ViewController: UIViewController {
     var songSlider: UISlider? = nil
     
     var songCurrentTime: UILabel = {
-        return UILabel()
+        let element = UILabel(frame: CGRect.zero)
+        element.font = UIFont(name: "Helvetica", size: 11)
+        element.textColor = UIColor.white
+        return element
     }()
     
     var songTime: UILabel = {
-        return UILabel()
+        let element = UILabel(frame: CGRect.zero)
+        element.font = UIFont(name: "Helvetica", size: 11)
+        element.textColor = UIColor.white
+        return element
     }()
     
     var timer: Timer? = nil
@@ -66,6 +91,14 @@ class ViewController: UIViewController {
         // make it vertical
         volumeSlider?.transform = CGAffineTransform(rotationAngle: CGFloat(-(Double.pi / 2)))
         view.addSubview(volumeSlider!)
+        
+        // 
+        songCurrentTime.frame = CGRect(x: (songSlider?.frame.origin.x)!, y: (songSlider?.frame.origin.y)!  + 40, width: 100, height: 45)
+        songCurrentTime.text = "0:00"
+        
+        // 
+        songTime.frame = CGRect(x: (songSlider?.frame.size.width)! + 50, y: (songSlider?.frame.origin.y)!  + 40, width: 100, height: 45)
+        songTime.text = "-:--"
 
         view.addSubview(songSlider!)
         view.addSubview(songCurrentTime)
@@ -88,7 +121,9 @@ class ViewController: UIViewController {
             timer?.invalidate()
             timer = nil
         }
-
+        
+        songCurrentTime.text = TimeInterval(seconds).positionalTime
+        
     }
     func changeVolume(_ sender: UISlider) {
         audioPlayer.volume = sender.value / 100.0
@@ -174,6 +209,8 @@ class ViewController: UIViewController {
     
     }
     func playPause(_ sender: AnyObject) {
+        
+        songTime.text = audioPlayer.duration.positionalTime
         
         if audioPlayer.isPlaying != true {
             audioPlayer.play()
